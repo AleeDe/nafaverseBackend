@@ -15,11 +15,11 @@ FROM openjdk:21-slim
 WORKDIR /app
 
 # Copy the Spring Boot application JAR file into the container
-COPY --from=build /app/target/nafaVerseBackend-0.0.1-SNAPSHOT.jar nafaVerseBackend-0.0.1-SNAPSHOT.jar
+COPY --from=build /app/target/nafaVerseBackend-0.0.1-nafaVerseBackend.jar nafaVerseBackend-0.0.1-nafaVerseBackend.jar
 
 # Expose the port your Spring application will run on
 EXPOSE 8080
 
 # Command to run the Spring Boot application
 
-ENTRYPOINT ["java", "-jar", "nafaVerseBackend-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar", "nafaVerseBackend-0.0.1-nafaVerseBackend.jar"]
