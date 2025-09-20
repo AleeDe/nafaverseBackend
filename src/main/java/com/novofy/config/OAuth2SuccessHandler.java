@@ -4,6 +4,7 @@ import com.novofy.jwt.JwtUtil;
 import com.novofy.model.User;
 import com.novofy.repository.UserRepository;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -13,6 +14,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -21,6 +23,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+
+    private final boolean secure = true; // true in production (HTTPS)
 
     public OAuth2SuccessHandler(UserRepository userRepository, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
@@ -36,7 +40,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
 
-        // Get registrationId (e.g., "google", "github")
         String registrationId = null;
         if (authentication instanceof OAuth2AuthenticationToken) {
             registrationId = ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId();
@@ -47,7 +50,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             User newUser = User.builder()
                     .email(email)
                     .username(name)
-                    .provider(registrationId) // Use registrationId here
+                    .provider(registrationId)
                     .role("USER")
                     .createdAt(LocalDate.now())
                     .profilePictureUrl("https://www.shutterstock.com/image-vector/blank-avatar-photo-place-holder-600nw-1095249842.jpg")
@@ -56,7 +59,33 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
 
         String jwtToken = jwtUtil.generateToken(email, "USER");
-        response.setContentType("application/json");
-        response.getWriter().write("{\"token\": \"" + jwtToken + "\"}");
+
+        // Set JWT as HTTP-only, Secure cookie
+        Cookie tokenCookie = new Cookie("token", jwtToken);
+        tokenCookie.setHttpOnly(true);
+        tokenCookie.setSecure(secure);
+        tokenCookie.setPath("/");
+        tokenCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+
+        // Set username cookie (encode value)
+        Cookie usernameCookie = new Cookie("username", URLEncoder.encode(name, "UTF-8"));
+        usernameCookie.setHttpOnly(false);
+        usernameCookie.setSecure(secure);
+        usernameCookie.setPath("/");
+        usernameCookie.setMaxAge(7 * 24 * 60 * 60);
+
+        // Set email cookie (encode value)
+        Cookie emailCookie = new Cookie("email", URLEncoder.encode(email, "UTF-8"));
+        emailCookie.setHttpOnly(false);
+        emailCookie.setSecure(secure);
+        emailCookie.setPath("/");
+        emailCookie.setMaxAge(7 * 24 * 60 * 60);
+
+        response.addCookie(tokenCookie);
+        response.addCookie(usernameCookie);
+        response.addCookie(emailCookie);
+
+        // Redirect to frontend home
+        response.sendRedirect("http://localhost:5173/");
     }
 }

@@ -117,7 +117,7 @@ public class UserService implements UserDetailsService {
 
         passwordResetTokenRepository.save(resetToken);
 
-        String resetLink = "http://your-frontend-url/reset-password?token=" + token;
+        String resetLink = "https://nafaverse-uc38.vercel.app/reset-password?token=" + token;
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
