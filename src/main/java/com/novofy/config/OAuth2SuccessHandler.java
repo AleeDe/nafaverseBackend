@@ -86,6 +86,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         response.addCookie(emailCookie);
 
         // Redirect to frontend home
-        response.sendRedirect("http://localhost:5173/");
+        response.sendRedirect("https://nafaverse-uc38.vercel.app/");
     }
 }
