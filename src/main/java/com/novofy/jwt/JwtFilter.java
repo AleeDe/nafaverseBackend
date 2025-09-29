@@ -1,29 +1,32 @@
 package com.novofy.jwt;
 
-import io.jsonwebtoken.ExpiredJwtException;
-import lombok.RequiredArgsConstructor;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
 import com.novofy.service.UserService;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Component
-@RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtFilter.class);
 
     @Autowired
     private JwtUtil jwtUtil;
+
     @Lazy
     @Autowired
     private UserService userService;
@@ -34,48 +37,81 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        logger.debug("Incoming request -> {} {}", request.getMethod(), request.getRequestURI());
 
-        String email = null;
         String token = null;
+        String header = request.getHeader("Authorization");
+        logger.debug("Authorization header: {}", header);
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7); // Remove "Bearer "
-            try {
-                email = jwtUtil.extractEmail(token);
-            } catch (ExpiredJwtException e) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Token expired");
-                return;
-            } catch (Exception e) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Invalid token");
-                return;
+        if (header != null && header.startsWith("Bearer ")) {
+            token = header.substring(7);
+            logger.debug("Token extracted from Authorization header (len={}): {}", token.length(), token);
+        }
+
+        // Fallback to cookies (useful for browser or Postman cookie header)
+        if (token == null) {
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie c : cookies) {
+                    logger.debug("Cookie present: {}={}", c.getName(), c.getValue());
+                    if ("token".equals(c.getName())) {
+                        token = c.getValue();
+                        logger.debug("Token extracted from cookie (len={}): {}", token.length(), token);
+                        break;
+                    }
+                }
+            } else {
+                logger.debug("No cookies present on request");
             }
         }
 
-        // 🔐 Validate user and set authentication
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userService.loadUserByUsername(email);
-
-            if (jwtUtil.validateToken(token, userDetails.getUsername())) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        if (token != null) {
+            try {
+                boolean valid = jwtUtil.isValid(token);
+                logger.debug("jwtUtil.isValid => {}", valid);
+                if (valid) {
+                    String email = jwtUtil.extractEmail(token);
+                    logger.debug("Email from token => {}", email);
+                    if (email != null) {
+                        UserDetails user = userService.loadUserByUsername(email);
+                        UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                        logger.debug("SecurityContext updated with user: {}", email);
+                    } else {
+                        logger.warn("Token valid but email extraction returned null");
+                    }
+                } else {
+                    logger.debug("Token is invalid or expired");
+                }
+            } catch (Exception e) {
+                logger.warn("Error while validating token: {}", e.getMessage(), e);
             }
+        } else {
+            logger.debug("No token found in header or cookies");
+        }
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
         }
 
         filterChain.doFilter(request, response);
     }
 
-    // ✅ Allow public access to login & signup routes
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return path.startsWith("/api/auth")
-            || path.startsWith("/api/password")
-            || path.startsWith("/test")
-            || path.startsWith("/oauth2");
-    }
+protected boolean shouldNotFilter(HttpServletRequest request) {
+    String path = request.getRequestURI();
+    // Do NOT skip /api/auth/me
+    return path.startsWith("/api/auth/login")
+        || path.startsWith("/api/auth/signup")
+        || path.startsWith("/api/auth/google/login")
+        || path.startsWith("/api/password")
+        || path.startsWith("/test")
+        || path.startsWith("/oauth2")
+        || path.startsWith("/login/oauth2/");
+}
+
+   
 }

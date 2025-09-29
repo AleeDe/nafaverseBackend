@@ -8,9 +8,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class CrossConfig {
 
-//    @Value("${frontend.url}")
-    private String frontend="https://nafaverse-uc38.vercel.app/";
-
+    private String frontend="https://nafaverse-uc38.vercel.app";
+    // private String frontend="http://localhost:5173";
     @Bean
     public WebMvcConfigurer webMvcConfigurer(){
         return new WebMvcConfigurer() {
@@ -18,9 +17,11 @@ public class CrossConfig {
             public void addCorsMappings(CorsRegistry registry){
                 registry.addMapping("/**")
                         .allowedOrigins(frontend)
-                        .allowedMethods("GET", "POST", "PUT", "DELETE")
+                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(true);
+                        .exposedHeaders("Authorization","Content-Type")
+                        .allowCredentials(true)
+                        .maxAge(3600);
             }
         };
     }

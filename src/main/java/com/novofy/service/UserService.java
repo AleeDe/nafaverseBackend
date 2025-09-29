@@ -1,6 +1,7 @@
 package com.novofy.service;
 
 
+import com.novofy.model.Goal;
 import lombok.RequiredArgsConstructor;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,6 +145,14 @@ public class UserService implements UserDetailsService {
         userRepository.save(user);
 
         passwordResetTokenRepository.deleteByToken(token); // Invalidate token after use
+    }
+    
+    public void addGoalToUser(ObjectId userId, Goal goal) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.getGoals().add(goal);
+        userRepository.save(user);
     }
 
 }

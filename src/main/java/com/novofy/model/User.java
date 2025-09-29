@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "users")
 @Data
@@ -35,8 +37,9 @@ public class User {
 
     private String country;
 
-    private String riskLevel;
-
+    @DBRef(lazy = true)
+    private List<Goal> goals = new ArrayList<>();
+    
     @DBRef(lazy = true)
     private EducationProgress educationProgress;
 

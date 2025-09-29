@@ -1,92 +1,89 @@
 package com.novofy.controller;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import com.novofy.dto.AuthResponse;
 import com.novofy.dto.LoginRequest;
 import com.novofy.dto.SignupRequest;
+import com.novofy.model.User;
 import com.novofy.service.UserService;
+import com.novofy.config.securityConfig;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-
-import jakarta.servlet.http.HttpServletResponse;
-
-
-import java.io.IOException;
+import java.net.URI;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private UserService userService;
-    private final boolean secure = true; // true in production (HTTPS)
+    private final UserService userService;
 
-    @PostMapping("/signup")
+    @PostMapping(value = "/signup", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> register(@RequestBody SignupRequest signupRequest) {
         try {
             userService.registerUser(signupRequest);
-            AuthResponse response = AuthResponse.builder()
-                .statusCode(200)
-                .error(null)
-                .build();
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(
+                AuthResponse.builder().statusCode(200).error(null).build()
+            );
         } catch (RuntimeException e) {
-            AuthResponse response = AuthResponse.builder()
-                .statusCode(409)
-                .error(e.getMessage())
-                .build();
-            return ResponseEntity.status(409).body(response);
+            return ResponseEntity.status(409).body(
+                AuthResponse.builder().statusCode(409).error(e.getMessage()).build()
+            );
         } catch (Exception e) {
-            AuthResponse response = AuthResponse.builder()
-                .statusCode(500)
-                .error("Server error")
-                .build();
-            return ResponseEntity.status(500).body(response);
+            return ResponseEntity.status(500).body(
+                AuthResponse.builder().statusCode(500).error("Server error").build()
+            );
         }
     }
 
-    @PostMapping("/login")
+    @PostMapping(value = "/login", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         try {
             String token = userService.loginUser(loginRequest);
-
             String email = loginRequest.getEmail();
-            String username = userService.getUserByEmail(email)
-                    .map(user -> user.getUsername())
-                    .orElse("");
-
-            AuthResponse authResponse = AuthResponse.builder()
-                .statusCode(200)
-                .token(token)
-                .error(null)
-                .username(username)
-                .email(email)
-                .build();
-            return ResponseEntity.ok(authResponse);
+            String username = userService.getUserByEmail(email).map(User::getUsername).orElse("");
+            return ResponseEntity.ok(
+                AuthResponse.builder()
+                    .statusCode(200)
+                    .token(token)
+                    .username(username)
+                    .email(email)
+                    .error(null)
+                    .build()
+            );
         } catch (RuntimeException e) {
-            AuthResponse authResponse = AuthResponse.builder()
-                .statusCode(401)
-                .token(null)
-                .error("Login failed: " + e.getMessage())
-                .build();
-            return ResponseEntity.status(401).body(authResponse);
+            return ResponseEntity.status(401).body(
+                AuthResponse.builder().statusCode(401).error("Login failed: " + e.getMessage()).build()
+            );
         } catch (Exception e) {
-            AuthResponse authResponse = AuthResponse.builder()
-                .statusCode(500)
-                .token(null)
-                .error("Server error")
-                .build();
-            return ResponseEntity.status(500).body(authResponse);
+            return ResponseEntity.status(500).body(
+                AuthResponse.builder().statusCode(500).error("Server error").build()
+            );
         }
     }
 
-    @GetMapping("/google/login")
-    public void googleLogin(HttpServletResponse response) throws IOException {
-        response.sendRedirect("/oauth2/authorization/google");
+    // Used by frontend to fetch current user from JWT
+    @GetMapping(value = "/me", produces = "application/json")
+    public ResponseEntity<?> me() {
+        String email = securityConfig.getCurrentUserEmail();
+        if (email == null) return ResponseEntity.status(401).body("Unauthorized");
+        Optional<User> userOpt = userService.getUserByEmail(email);
+        if (userOpt.isEmpty()) return ResponseEntity.status(404).body("User not found");
+        User u = userOpt.get();
+        return ResponseEntity.ok(java.util.Map.of(
+            "id", u.getId() == null ? null : u.getId().toString(),
+            "username", u.getUsername(),
+            "email", u.getEmail()
+        ));
     }
 
+    // Redirects to Spring Security OAuth2 entry point
+    @GetMapping("/google/login")
+    public ResponseEntity<Void> googleLogin() {
+        return ResponseEntity.status(302)
+            .location(URI.create("/oauth2/authorization/google"))
+            .build();
+    }
 }

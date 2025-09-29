@@ -22,33 +22,36 @@ public class Goal {
     @Id
     private ObjectId goalId;
 
-    @DBRef(lazy = true)
-    private ObjectId userId;
-
     private String originalPrompt;
 
-    private String goalType;
+    private String goalName;
 
     private String city;
 
     private BigDecimal estimatedCost;
 
-    private List<Integer> targetMonth;
+    private Integer targetYear;
 
-    private List<BigDecimal> monthlySavingRequired;
+    private BigDecimal monthlySavingRequired;
 
     private int roiRate;
 
     private int inflationRate;
 
-    @DBRef
-    private SuggestedPlan suggestedPlan;
-    
-    private String status;
+    private BigDecimal finalAmount; // value at targetYear (should equal last graphData.projectedValue)
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    private List<String> graphData;
+    private List<GoalGraphData> graphData;
     
+
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class GoalGraphData {
+        private int year;
+        private BigDecimal projectedValue;
+    }
 }
