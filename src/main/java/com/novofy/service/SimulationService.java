@@ -15,7 +15,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -25,7 +24,6 @@ public class SimulationService {
     private final ChatClient chatClient;
     private final SimulationRepository simulationRepository;
     private final UserRepository userRepository;
-    private final UserService userService;
 
     private static String nz(String s) { return s == null ? "" : s; }
     private static BigDecimal n0(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }

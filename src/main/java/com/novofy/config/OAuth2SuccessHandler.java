@@ -68,6 +68,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     // Issue JWT and redirect to SPA callback
     String jwtToken = jwtUtil.generateToken(email, "USER");
     String frontend = "https://nafaverse-uc38.vercel.app/auth/callback";
+    // String frontend = "http://localhost:5173/auth/callback";
     String target = frontend
         + "?token=" + enc(jwtToken)
         + (email != null ? "&email=" + enc(email) : "")
