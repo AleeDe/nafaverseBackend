@@ -11,7 +11,11 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ai.retry.NonTransientAiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -179,11 +183,23 @@ public class GoalService {
 
         String escapedPrompt = escapeBraces(finalPrompt);
 
-        GoalAiResponse aiResponse = chatClient
+        GoalAiResponse aiResponse;
+        try {
+            aiResponse = chatClient
                 .prompt()
                 .user(escapedPrompt)
                 .call()
                 .entity(GoalAiResponse.class);
+        } catch (NonTransientAiException e) {
+            // OpenAI quota or similar non-retryable error
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "AI quota exceeded. Please try later.");
+        } catch (RestClientResponseException e) {
+            HttpStatus status = HttpStatus.resolve(e.getRawStatusCode());
+            throw new ResponseStatusException(status != null ? status : HttpStatus.BAD_GATEWAY,
+                    "AI call failed: " + e.getResponseBodyAsString());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI call failed: " + e.getMessage());
+        }
 
         // Server-side correction for "correct data"
         int roiRate = aiResponse.getRoiRate() > 0 ? aiResponse.getRoiRate() : 12; // default 12%

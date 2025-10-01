@@ -6,6 +6,7 @@ import com.novofy.service.GoalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/goals")
@@ -17,7 +18,6 @@ public class GoalController {
     // POST - create a new Goal
     @PostMapping(path = "/create", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> createGoal(@RequestBody CreateGoalRequest request) {
-        System.out.println("Received request to create goal: " + request);
         try {
             Goal savedGoal = goalService.createGoal(
                 request.getGoalName(),
@@ -27,9 +27,14 @@ public class GoalController {
             );
             System.out.println(savedGoal);
             return ResponseEntity.ok(savedGoal);
+        } catch (ResponseStatusException ex) {
+            // Preserve status from service (e.g., 429 for AI quota)
+            return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("Error creating goal: " + e.getMessage());
+            return ResponseEntity.status(500).body("Server error: " + e.getMessage());
         }
     }
 
