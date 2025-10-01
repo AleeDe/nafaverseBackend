@@ -57,6 +57,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             .email(email)
             .username(name != null ? name : email)
             .provider(provider)
+            .password("{noop}oauth2user")
             .role("USER")
             .createdAt(LocalDate.now())
             .profilePictureUrl("https://www.shutterstock.com/image-vector/blank-avatar-photo-place-holder-600nw-1095249842.jpg")
