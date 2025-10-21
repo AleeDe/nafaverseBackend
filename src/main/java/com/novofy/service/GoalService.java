@@ -138,33 +138,43 @@ public class GoalService {
 
         String basePrompt = """
             You are a financial planner AI.
-            Always respond in JSON format ONLY.
+            Always respond in strictly valid JSON ONLY.
+
+            IMPORTANT — before producing projections:
+            1) Determine the CURRENT MARKET PRICE of the target item/service as of today and use it as the base (currentPrice).
+               - If you have access to a reliable public data source, use it and list the source in dataSources[].
+               - If live data is unavailable, estimate currentPrice and explain the estimation method in the "notes" field.
+            2) Consider global macroeconomic conditions when projecting (inflation, short-term interest rates, exchange rates, major commodity trends, recent economic indicators, and major geopolitical risks). Use these to adjust projections and state which indicators were used in "notes" or "dataSources".
 
             Rules:
             - graphData MUST start at year %d (the current year) and include one entry for every year up to %d (inclusive).
-            - The first year's projectedValue MUST be 0.
+            - The projectedValue for the first year MUST equal currentPrice.
             - finalAmount MUST equal the projectedValue for year %d (the last year).
-            - estimatedCost MUST be the same as finalAmount (i.e., equal to the last projectedValue).
+            - estimatedCost MUST equal finalAmount.
             - Use the inputs exactly as provided.
-            - Output must be strictly valid JSON only.
+            - Output must be strictly valid JSON only and numeric values should be rounded to two decimal places.
             - %s is a city according to input parameters.
 
             Input:
             Goal: %s
             City: %s
             Target Year: %d
-            Assume ROI = 12%% and Inflation = 6%%.
+            Assume nominal ROI = 12%% and baseline inflation = 6%% (you may adjust these with justification based on current data).
 
-            Output JSON schema:
+            Required Output JSON schema (only these keys, extra diagnostic keys allowed but keep JSON valid):
             {
+              "currentPrice": number,
               "estimatedCost": number,
               "monthlySavingRequired": number,
-              "roiRate": 12,
-              "inflationRate": 6,
+              "totalInvestment": number,   // total amount invested over the period (based on monthlySavingRequired * months target year from now)
+              "roiRate": number,
+              "inflationRate": number,
               "graphData": [
                  { "year": number, "projectedValue": number }
               ],
-              "finalAmount": number
+              "finalAmount": number,
+              "dataSources": [ string ],    // list data sources or 'estimated' when necesary
+              "notes": string               // brief explanation of assumptions / method
             }
             """.formatted(
                 currentYear,
@@ -238,6 +248,12 @@ public class GoalService {
         goal.setInflationRate(aiResponse.getInflationRate() > 0 ? aiResponse.getInflationRate() : 6);
         goal.setCreatedAt(LocalDateTime.now());
         goal.setUpdatedAt(LocalDateTime.now());
+
+        // compute total months until target (whole years). If you want partial-year use LocalDate differences.
+        int totalMonths = Math.max(0, (targetYear - currentYear) * 12);
+        BigDecimal totalInvestment = monthly.multiply(BigDecimal.valueOf(totalMonths))
+                                            .setScale(2, RoundingMode.HALF_UP);
+        goal.setTotalInvestment(totalInvestment);
 
         List<Goal.GoalGraphData> graphData = computed.stream()
                 .map(g -> new Goal.GoalGraphData(g.getYear(), g.getProjectedValue()))

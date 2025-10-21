@@ -40,6 +40,9 @@ public class Goal {
 
     private BigDecimal finalAmount; // value at targetYear (should equal last graphData.projectedValue)
 
+    private BigDecimal totalInvestment;
+
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
