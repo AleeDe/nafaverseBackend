@@ -17,7 +17,7 @@ public class SelfPingService {
     // every 60s, 10s initial delay
     @Scheduled(initialDelay = 10000, fixedRateString = "${SELF_PING_INTERVAL_MS:60000}")
     public void pingSelf() {
-        String url = "http://localhost:" + port + "/health/ping";
+        String url = "https://nafaversebackend.onrender.com"  + "/health/ping";
         System.out.println("Self-pinging: " + url);
         try {
             rest.getForObject(url, String.class);
