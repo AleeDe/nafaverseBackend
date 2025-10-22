@@ -146,6 +146,13 @@ public class GoalService {
                - If live data is unavailable, estimate currentPrice and explain the estimation method in the "notes" field.
             2) Consider global macroeconomic conditions when projecting (inflation, short-term interest rates, exchange rates, major commodity trends, recent economic indicators, and major geopolitical risks). Use these to adjust projections and state which indicators were used in "notes" or "dataSources".
 
+            Special-case for pilgrimage goals:
+            - If the goal mentions "haj", "Perform Hajj", "umrah" or "Perform Umrah" (case-insensitive), assume default costs unless the user provides a different amount:
+              * Haj (hajj): 1,300,000 (local currency) — treat this as the approximate cost for the year 2025.
+              * Umrah: 400,000 (local currency) — treat this as the approximate cost for the year 2025.
+            - Use these defaults as currentPrice when applicable and explicitly state that these values represent 2025 costs in "dataSources" or "notes".
+            - If the user supplies a different amount or specifies a different year, use the user's input instead and note the override.
+
             Rules:
             - graphData MUST start at year %d (the current year) and include one entry for every year up to %d (inclusive).
             - The projectedValue for the first year MUST equal currentPrice.
@@ -170,20 +177,20 @@ public class GoalService {
               "roiRate": number,
               "inflationRate": number,
               "graphData": [
-                 { "year": number, "projectedValue": number }
+             { "year": number, "projectedValue": number }
               ],
               "finalAmount": number,
               "dataSources": [ string ],    // list data sources or 'estimated' when necesary
               "notes": string               // brief explanation of assumptions / method
             }
             """.formatted(
-                currentYear,
-                targetYear,
-                targetYear,
-                city,
-                goalName,
-                city,
-                targetYear
+            currentYear,
+            targetYear,
+            targetYear,
+            city,
+            goalName,
+            city,
+            targetYear
             );
 
         String finalPrompt = (userPrompt != null && !userPrompt.isBlank())
